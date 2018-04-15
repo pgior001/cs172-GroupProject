@@ -1,11 +1,8 @@
 package com.web.crawler;
 
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -13,16 +10,22 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.Scanner;
 import java.util.Set;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 
+//core of the crawler containing functions to call to run the crawler
 public class CrawlerThread extends Thread {
 	int threadNumber;
+	//might need to make a node of this to track the depth along with the url. or possible just a set.
     private static Set<String> pagesVisited = new HashSet<String>();
-	private static Queue<String> urlsToCrawl = new LinkedList<String>(Arrays.asList("http://www.ucr.edu/", "https://www.american.edu/", "https://www.sdsu.edu/" 
+    //just an idea. this will use more memory but will decrease the number of times we need to request the robots.txt by storing the results.
+    private static ArrayList<robotTextNode> crawlPermissions = new ArrayList<robotTextNode>();
+	//from the todo in the main make this initialized by a file not static
+    private static Queue<String> urlsToCrawl = new LinkedList<String>(Arrays.asList("http://www.ucr.edu/", "https://www.american.edu/", "https://www.sdsu.edu/" 
 			, "http://www.rccd.edu", "https://ucsd.edu/", "https://www.berkeley.edu/", "https://uci.edu/", "http://www.ucla.edu/", "https://www.csusm.edu/", 
 			"http://www.cpp.edu/", "http://www.redlands.edu/", "https://calbaptist.edu/", "https://www.apu.edu/"));
 	
@@ -36,7 +39,7 @@ public class CrawlerThread extends Thread {
 	
 	 private void crawl() {
 		 System.out.println("thread started: " + threadNumber);
-		 	// TODO add code to look read robots.txt
+		 	// TODO add code to look read robots.txt and check permisions from these files
 		 	// TODO track and use a max depth
 	        String url = getNextUrl();
 	        do {
@@ -56,6 +59,20 @@ public class CrawlerThread extends Thread {
 	        	}
 	        } while(url != null);
     }
+	 
+	 //function to get and update and save robot.txt permissions to crawlerPermissions
+	 private void getRobotPermission(String rootUrl) {
+		 URL url;
+		try {
+			url = new URL(rootUrl);
+			Scanner s = new Scanner(url.openStream());
+			//TODO use the scanner to read this file and store disallowed
+		} catch (MalformedURLException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 	 
 	 private String getNextUrl() {
 		 synchronized(urlsToCrawl) {

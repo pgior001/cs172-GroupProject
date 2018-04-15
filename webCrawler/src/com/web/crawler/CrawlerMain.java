@@ -1,12 +1,9 @@
 package com.web.crawler;
 
-import java.io.IOException;
 import java.util.ArrayList;
 
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-
+//class that will take inputs and initialize the crawler and all of its threads.
+// TODO make the crawler take a seed file for the start pages.
 public class CrawlerMain {
     public static void main(String args[]){
     	int cores = Runtime.getRuntime().availableProcessors();
