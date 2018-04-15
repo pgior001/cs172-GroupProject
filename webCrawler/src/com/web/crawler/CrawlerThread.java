@@ -54,9 +54,11 @@ public class CrawlerThread extends Thread {
 //		        	System.out.println(pagesVisited.size());
 	        	}
 	        	ArrayList<String> found = this.retriveDocumentLinks(url);
-	        	for(int i = 0; i < found.size(); ++i) {
-        			urlsToCrawl.add(found.get(i));
-	        	}
+        		synchronized(urlsToCrawl) {
+		        	for(int i = 0; i < found.size(); ++i) {
+	        			urlsToCrawl.add(found.get(i));
+		        	}
+        		}
 	        } while(url != null);
     }
 	 
@@ -88,7 +90,7 @@ public class CrawlerThread extends Thread {
 		 try {
 			 	// TODO come up with a better file naming convention that will actually work. this does not work all the time
 			 	// it was just a test to see if it would work. My thought was we might need to backtrack to the url the html
-			 	//comes from
+			 	//comes from in the second stage to get a more complete page
 	            BufferedWriter writer = 
 	              new BufferedWriter(new FileWriter(".\\data\\" +pageUrl.replaceAll("[:]", "").replaceAll("[/]", "") + ".html"));
 	             
