@@ -68,6 +68,9 @@ public class CrawlerThread extends Thread {
 	    for (String nextUrl = getNextUrl(); nextUrl != null; nextUrl = getNextUrl()) {
 	        // visit the next url
             synchronized (pagesVisited) {
+            	//in case the same url gets added multiple times before it is visited.
+            	if(pagesVisited.contains(nextUrl))
+            		continue;
                 pagesVisited.add(nextUrl);
             }
             URL page;
