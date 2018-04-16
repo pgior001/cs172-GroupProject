@@ -22,7 +22,6 @@ import org.jsoup.select.Elements;
 //core of the crawler containing functions to call to run the crawler
 public class CrawlerThread extends Thread {
 	private int threadNumber;
-    //just an idea. this will use more memory but will decrease the number of times we need to request the robots.txt by storing the results.
     private static Map<String, ArrayList<String>> crawlPermissions = new HashMap<String, ArrayList<String>>();
 
     // all urls in this queue are unique and should be processed
