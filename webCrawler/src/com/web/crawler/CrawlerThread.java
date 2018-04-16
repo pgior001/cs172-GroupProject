@@ -9,6 +9,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
@@ -21,7 +22,27 @@ import org.jsoup.select.Elements;
 
 //core of the crawler containing functions to call to run the crawler
 public class CrawlerThread extends Thread {
+	
+	private class urlNode{
+		private int hops = 0;
+		private String url = "";
+		public urlNode(int h, String u)
+		{
+			hops = h;
+			url = u;
+		}
+		public String getUrl()
+		{
+			return url;
+		}
+		public int getHops()
+		{
+			return hops;
+		}
+	}
+	
 	private int threadNumber;
+	private static boolean init = false;
     //just an idea. this will use more memory but will decrease the number of times we need to request the robots.txt by storing the results.
     private static Map<String, ArrayList<String>> crawlPermissions = new HashMap<String, ArrayList<String>>();
 
@@ -29,10 +50,24 @@ public class CrawlerThread extends Thread {
     final private static Queue<String> urlsToCrawl = new LinkedList<>(CrawlerMain.rootPages);
     // keeps track of all pages that are in urlsToCrawl (about to be processed) or pages already processed
     final private static Set<String> seenPages = new HashSet<>(CrawlerMain.rootPages);
+    
+    final private static Queue<urlNode> newUrlsToCrawl = new LinkedList<>();
 
 	
 	public CrawlerThread(int number) {
 		threadNumber = number;
+		
+		synchronized(newUrlsToCrawl)
+		{
+			if(init == false)
+			{
+				for(int i = 0; i < CrawlerMain.rootPages.size(); i++)
+				{
+					newUrlsToCrawl.add(new urlNode(0,CrawlerMain.rootPages.get(i)));
+				}
+				init = true;
+			}
+		}
 	}
 	
 	public void run() {
@@ -40,17 +75,23 @@ public class CrawlerThread extends Thread {
     }
 
     private void crawl() {
-	    for (String url = getNextUrl(); url != null; url = getNextUrl()) {
+	    for (urlNode urlN = getNextUrl(); urlN != null; urlN = getNextUrl()) {
             try {
 
-                Document document = Jsoup.connect(url).get();
+            	System.out.println("Url: " + urlN.getUrl() + " Hop count: " + urlN.getHops());//wanted to check the hop count and the url
+                Document document = Jsoup.connect(urlN.getUrl()).get();
                 // document successfully retrieved
 
                 // save page
-                savePage(document, url);
+                savePage(document, urlN.getUrl());
 
                 // add new links in the document to crawl
-                addNewLinksFromDocument(document);
+                //check its under the hop limit
+                //addNewLinksFromDocument(document);
+                if(urlN.getHops() < 6)
+                {
+                	addNewLinksFromDocument(document,urlN.getHops());
+                }
             } catch (IOException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
@@ -95,11 +136,22 @@ public class CrawlerThread extends Thread {
 				s.close();
 		}
 	}
+    
+    
+//    private String getNextUrl() {
+//	    synchronized(urlsToCrawl) {
+//            if(!urlsToCrawl.isEmpty()) {
+//                return urlsToCrawl.remove();
+//            } else {
+//                return null;
+//            }
+//	    }
+//	}
 
-	private String getNextUrl() {
-	    synchronized(urlsToCrawl) {
-            if(!urlsToCrawl.isEmpty()) {
-                return urlsToCrawl.remove();
+	private urlNode getNextUrl() {
+	    synchronized(newUrlsToCrawl) {
+            if(!newUrlsToCrawl.isEmpty()) {
+                return newUrlsToCrawl.remove();
             } else {
                 return null;
             }
@@ -125,8 +177,42 @@ public class CrawlerThread extends Thread {
 	        System.out.println("IOException raised");
 	    }
 	}
+	
 
-    private void addNewLinksFromDocument(Document document) {
+//	private void addNewLinksFromDocument(Document document) {
+//		ArrayList<String> linkUrls = new ArrayList<>();
+//        Elements links = document.select("a[href]");
+//        for (int i = 0; i < links.size(); i++) {
+//            String newLink = links.get(i).attr("abs:href"); // get absolute path when possible
+//            if (!newLink.startsWith("http://")) continue; // parse only http links (avoid ftp, https, or any other protocol). removes some urls that we do not want, such as "mailto"
+//            newLink = cleanupUpUrl(newLink); // cleanup: sharp, casing, encoding
+//
+//            try {
+//                URL page = new URL(newLink);
+//                synchronized (crawlPermissions) {
+//                    if (crawlPermissions.get(page.getHost()) == null)
+//                        getRobotPermission(page.getHost());
+//                }
+//                if (canCrawl(page.getHost(), page.getPath())) {
+//                    synchronized (seenPages) {
+//                        if (!seenPages.contains(newLink)) {
+//                            System.out.println(newLink); // temporary print statement
+//                            seenPages.add(newLink);
+//                            linkUrls.add(newLink);
+//                        }
+//                    }
+//                }
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//
+//        synchronized(urlsToCrawl) {
+//            urlsToCrawl.addAll(linkUrls);
+//        }
+//    }
+	
+    private void addNewLinksFromDocument(Document document,int hopNumber) {
 		ArrayList<String> linkUrls = new ArrayList<>();
         Elements links = document.select("a[href]");
         for (int i = 0; i < links.size(); i++) {
@@ -143,7 +229,7 @@ public class CrawlerThread extends Thread {
                 if (canCrawl(page.getHost(), page.getPath())) {
                     synchronized (seenPages) {
                         if (!seenPages.contains(newLink)) {
-                            System.out.println(newLink); // temporary print statement
+                            //System.out.println(newLink); // temporary print statement
                             seenPages.add(newLink);
                             linkUrls.add(newLink);
                         }
@@ -154,10 +240,16 @@ public class CrawlerThread extends Thread {
             }
         }
 
-        synchronized(urlsToCrawl) {
-            urlsToCrawl.addAll(linkUrls);
+        
+        synchronized(newUrlsToCrawl) {
+        	for(int i = 0; i < linkUrls.size(); i++)
+        	{
+        		newUrlsToCrawl.add(new urlNode(hopNumber+1,linkUrls.get(i)));
+        	}
         }
     }
+    
+    
 
 
     private String cleanupUpUrl(String oldUrl) {
