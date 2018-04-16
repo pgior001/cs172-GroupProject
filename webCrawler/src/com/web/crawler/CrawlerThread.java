@@ -57,8 +57,6 @@ public class CrawlerThread extends Thread {
 	public CrawlerThread(int number) {
 		threadNumber = number;
 		
-		synchronized(newUrlsToCrawl)
-		{
 			if(init == false)
 			{
 				for(int i = 0; i < CrawlerMain.rootPages.size(); i++)
@@ -67,7 +65,6 @@ public class CrawlerThread extends Thread {
 				}
 				init = true;
 			}
-		}
 	}
 	
 	public void run() {
