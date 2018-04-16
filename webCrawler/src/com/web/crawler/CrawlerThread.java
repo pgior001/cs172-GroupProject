@@ -24,9 +24,7 @@ public class CrawlerThread extends Thread {
 	int threadNumber;
 	//might need to make a node of this to track the depth along with the url. or possible just a set.
     private static Set<String> pagesVisited = new HashSet<>();
-    //just an idea. this will use more memory but will decrease the number of times we need to request the robots.txt by storing the results.
     private static Map<String, ArrayList<String>> crawlPermissions = new HashMap<String, ArrayList<String>>();
-	//from the todo in the main make this initialized by a file not static
     final private static Queue<String> urlsToCrawl = new LinkedList<>(Arrays.asList("http://www.ucr.edu/", "https://www.american.edu/", "https://www.sdsu.edu/"
 			, "http://www.rccd.edu", "https://ucsd.edu/", "https://www.berkeley.edu/", "https://uci.edu/", "http://www.ucla.edu/", "https://www.csusm.edu/", 
 			"http://www.cpp.edu/", "http://www.redlands.edu/", "https://calbaptist.edu/", "https://www.apu.edu/"));
