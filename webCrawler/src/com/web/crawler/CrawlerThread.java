@@ -6,7 +6,14 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Scanner;
+import java.util.Set;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -16,12 +23,13 @@ import org.jsoup.select.Elements;
 public class CrawlerThread extends Thread {
 	private int threadNumber;
     //just an idea. this will use more memory but will decrease the number of times we need to request the robots.txt by storing the results.
-    private static ArrayList<robotTextNode> crawlPermissions = new ArrayList<>();
+    private static Map<String, ArrayList<String>> crawlPermissions = new HashMap<String, ArrayList<String>>();
 
     // all urls in this queue are unique and should be processed
     final private static Queue<String> urlsToCrawl = new LinkedList<>(CrawlerMain.rootPages);
     // keeps track of all pages that are in urlsToCrawl (about to be processed) or pages already processed
     final private static Set<String> seenPages = new HashSet<>(CrawlerMain.rootPages);
+
 	
 	public CrawlerThread(int number) {
 		threadNumber = number;
@@ -32,9 +40,9 @@ public class CrawlerThread extends Thread {
     }
 
     private void crawl() {
-	    System.out.println("thread started: " + threadNumber);
 	    for (String url = getNextUrl(); url != null; url = getNextUrl()) {
             try {
+
                 Document document = Jsoup.connect(url).get();
                 // document successfully retrieved
 
@@ -57,14 +65,34 @@ public class CrawlerThread extends Thread {
     //function to get and update and save robot.txt permissions to crawlerPermissions
     private void getRobotPermission(String rootUrl) {
 	    URL url;
+	    Scanner s = null;
 		try {
-			url = new URL(rootUrl);
-			Scanner s = new Scanner(url.openStream());
+			url = new URL("http://" + rootUrl + "/robots.txt");
+			s = new Scanner(url.openStream());
 			//TODO use the scanner to read this file and store disallowed
+			ArrayList<String> commands = new ArrayList<>();
+			while(s.hasNextLine()) {
+				String next = s.nextLine();
+				if(next.toLowerCase().equals("user-agent: *")) {
+					String command;
+					while(s.hasNextLine() && (!(command = s.nextLine().toLowerCase()).contains("user-agent:"))){
+						if(command.contains("disallow:")) {
+							commands.add(command.split(":")[1].trim());
+						}
+					}
+				}
+			}
+			s.close();
+			synchronized(this.crawlPermissions) {
+				this.crawlPermissions.put(rootUrl, commands);
+			}
 		} catch (MalformedURLException e) {
-			e.printStackTrace();
+//			e.printStackTrace();
 		} catch (IOException e) {
-			e.printStackTrace();
+//			e.printStackTrace();
+		} finally {
+			if(s != null)
+				s.close();
 		}
 	}
 
@@ -83,13 +111,11 @@ public class CrawlerThread extends Thread {
             // TODO come up with a better file naming convention that will actually work. this does not work all the time
             // it was just a test to see if it would work. My thought was we might need to backtrack to the url the html
             //comes from in the second stage to get a more complete page
-
-            BufferedWriter writer =
+	    	BufferedWriter writer =
               new BufferedWriter(new FileWriter(".\\data\\" +pageUrl.replaceAll("[:]", "").replaceAll("[/]", "") + ".html"));
 
             writer.write(doc.html());
             writer.close();
-//            System.out.println("Successfully Downloaded.");
 	    }
 	    // Exceptions
         catch (MalformedURLException mue) {
@@ -108,12 +134,23 @@ public class CrawlerThread extends Thread {
             if (!newLink.startsWith("http://")) continue; // parse only http links (avoid ftp, https, or any other protocol). removes some urls that we do not want, such as "mailto"
             newLink = cleanupUpUrl(newLink); // cleanup: sharp, casing, encoding
 
-            synchronized (seenPages) {
-                if (!seenPages.contains(newLink)) {
-                    System.out.println(newLink); // temporary print statement
-                    seenPages.add(newLink);
-                    linkUrls.add(newLink);
+            try {
+                URL page = new URL(newLink);
+                synchronized (crawlPermissions) {
+                    if (crawlPermissions.get(page.getHost()) == null)
+                        getRobotPermission(page.getHost());
                 }
+                if (canCrawl(page.getHost(), page.getPath())) {
+                    synchronized (seenPages) {
+                        if (!seenPages.contains(newLink)) {
+                            System.out.println(newLink); // temporary print statement
+                            seenPages.add(newLink);
+                            linkUrls.add(newLink);
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
 
@@ -151,5 +188,18 @@ public class CrawlerThread extends Thread {
         } else {
             return url;
         }
-    }
+	 }
+	
+	private Boolean canCrawl(String root, String path) {
+		ArrayList<String> disallowed = this.crawlPermissions.get(root);
+		if(disallowed != null) {
+			for(int i = 0; i < disallowed.size(); ++i) {
+				if(path.startsWith(disallowed.get(i))) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
 }
