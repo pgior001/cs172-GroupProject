@@ -21,17 +21,49 @@ import org.jsoup.select.Elements;
 
 //core of the crawler containing functions to call to run the crawler
 public class CrawlerThread extends Thread {
+	
+	private class urlNode{
+		private int hops = 0;
+		private String url = "";
+		public urlNode(int h, String u)
+		{
+			hops = h;
+			url = u;
+		}
+		public String getUrl()
+		{
+			return url;
+		}
+		public int getHops()
+		{
+			return hops;
+		}
+	}
+	
 	private int threadNumber;
+	private int maxHops = 6;
+	private static boolean init = false;
     private static Map<String, ArrayList<String>> crawlPermissions = new HashMap<String, ArrayList<String>>();
 
     // all urls in this queue are unique and should be processed
     final private static Queue<String> urlsToCrawl = new LinkedList<>(CrawlerMain.rootPages);
     // keeps track of all pages that are in urlsToCrawl (about to be processed) or pages already processed
     final private static Set<String> seenPages = new HashSet<>(CrawlerMain.rootPages);
+    
+    final private static Queue<urlNode> newUrlsToCrawl = new LinkedList<>();
 
 	
 	public CrawlerThread(int number) {
 		threadNumber = number;
+		
+			if(init == false)
+			{
+				for(int i = 0; i < CrawlerMain.rootPages.size(); i++)
+				{
+					newUrlsToCrawl.add(new urlNode(0,CrawlerMain.rootPages.get(i)));
+				}
+				init = true;
+			}
 	}
 	
 	public void run() {
@@ -39,17 +71,23 @@ public class CrawlerThread extends Thread {
     }
 
     private void crawl() {
-	    for (String url = getNextUrl(); url != null; url = getNextUrl()) {
+	    for (urlNode urlN = getNextUrl(); urlN != null; urlN = getNextUrl()) {
             try {
 
-                Document document = Jsoup.connect(url).get();
+            	System.out.println("Url: " + urlN.getUrl() + " Hop count: " + urlN.getHops());//wanted to check the hop count and the url
+                Document document = Jsoup.connect(urlN.getUrl()).get();
                 // document successfully retrieved
 
                 // save page
-                savePage(document, url);
+                savePage(document, urlN.getUrl());
 
                 // add new links in the document to crawl
-                addNewLinksFromDocument(document);
+                //check its under the hop limit
+                //addNewLinksFromDocument(document);
+                if(urlN.getHops() < this.maxHops)
+                {
+                	addNewLinksFromDocument(document,urlN.getHops());
+                }
             } catch (IOException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
@@ -95,10 +133,10 @@ public class CrawlerThread extends Thread {
 		}
 	}
 
-	private String getNextUrl() {
-	    synchronized(urlsToCrawl) {
-            if(!urlsToCrawl.isEmpty()) {
-                return urlsToCrawl.remove();
+	private urlNode getNextUrl() {
+	    synchronized(newUrlsToCrawl) {
+            if(!newUrlsToCrawl.isEmpty()) {
+                return newUrlsToCrawl.remove();
             } else {
                 return null;
             }
@@ -124,8 +162,42 @@ public class CrawlerThread extends Thread {
 	        System.out.println("IOException raised");
 	    }
 	}
+	
 
-    private void addNewLinksFromDocument(Document document) {
+//	private void addNewLinksFromDocument(Document document) {
+//		ArrayList<String> linkUrls = new ArrayList<>();
+//        Elements links = document.select("a[href]");
+//        for (int i = 0; i < links.size(); i++) {
+//            String newLink = links.get(i).attr("abs:href"); // get absolute path when possible
+//            if (!newLink.startsWith("http://")) continue; // parse only http links (avoid ftp, https, or any other protocol). removes some urls that we do not want, such as "mailto"
+//            newLink = cleanupUpUrl(newLink); // cleanup: sharp, casing, encoding
+//
+//            try {
+//                URL page = new URL(newLink);
+//                synchronized (crawlPermissions) {
+//                    if (crawlPermissions.get(page.getHost()) == null)
+//                        getRobotPermission(page.getHost());
+//                }
+//                if (canCrawl(page.getHost(), page.getPath())) {
+//                    synchronized (seenPages) {
+//                        if (!seenPages.contains(newLink)) {
+//                            System.out.println(newLink); // temporary print statement
+//                            seenPages.add(newLink);
+//                            linkUrls.add(newLink);
+//                        }
+//                    }
+//                }
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//
+//        synchronized(urlsToCrawl) {
+//            urlsToCrawl.addAll(linkUrls);
+//        }
+//    }
+	
+    private void addNewLinksFromDocument(Document document,int hopNumber) {
 		ArrayList<String> linkUrls = new ArrayList<>();
         Elements links = document.select("a[href]");
         for (int i = 0; i < links.size(); i++) {
@@ -142,7 +214,7 @@ public class CrawlerThread extends Thread {
                 if (canCrawl(page.getHost(), page.getPath())) {
                     synchronized (seenPages) {
                         if (!seenPages.contains(newLink)) {
-                            System.out.println(newLink); // temporary print statement
+                            //System.out.println(newLink); // temporary print statement
                             seenPages.add(newLink);
                             linkUrls.add(newLink);
                         }
@@ -153,10 +225,16 @@ public class CrawlerThread extends Thread {
             }
         }
 
-        synchronized(urlsToCrawl) {
-            urlsToCrawl.addAll(linkUrls);
+        
+        synchronized(newUrlsToCrawl) {
+        	for(int i = 0; i < linkUrls.size(); i++)
+        	{
+        		newUrlsToCrawl.add(new urlNode(hopNumber+1,linkUrls.get(i)));
+        	}
         }
     }
+    
+    
 
 
     private String cleanupUpUrl(String oldUrl) {
