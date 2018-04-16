@@ -4,14 +4,9 @@ import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Queue;
-import java.util.Scanner;
-import java.util.Set;
+import java.util.*;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -19,67 +14,42 @@ import org.jsoup.select.Elements;
 
 //core of the crawler containing functions to call to run the crawler
 public class CrawlerThread extends Thread {
-	int threadNumber;
-	//might need to make a node of this to track the depth along with the url. or possible just a set.
-    private static Set<String> pagesVisited = new HashSet<>();
+	private int threadNumber;
     //just an idea. this will use more memory but will decrease the number of times we need to request the robots.txt by storing the results.
     private static ArrayList<robotTextNode> crawlPermissions = new ArrayList<>();
-	//from the todo in the main make this initialized by a file not static
-    final private static Queue<String> urlsToCrawl = new LinkedList<>(Arrays.asList("http://www.ucr.edu/", "https://www.american.edu/", "https://www.sdsu.edu/"
-			, "http://www.rccd.edu", "https://ucsd.edu/", "https://www.berkeley.edu/", "https://uci.edu/", "http://www.ucla.edu/", "https://www.csusm.edu/", 
-			"http://www.cpp.edu/", "http://www.redlands.edu/", "https://calbaptist.edu/", "https://www.apu.edu/"));
+
+    // all urls in this queue are unique and should be processed
+    final private static Queue<String> urlsToCrawl = new LinkedList<>(CrawlerMain.rootPages);
+    // keeps track of all pages that are in urlsToCrawl (about to be processed) or pages already processed
+    final private static Set<String> seenPages = new HashSet<>(CrawlerMain.rootPages);
 	
 	public CrawlerThread(int number) {
 		threadNumber = number;
 	}
 	
 	public void run() {
-        this.crawl();
+	    crawl();
     }
-	
-//	 private void crawl() {
-//	    System.out.println("thread started: " + threadNumber);
-//		// TODO add code to look read robots.txt and check permisions from these files
-//		// TODO track and use a max depth
-//		String url = getNextUrl();
-//
-//		do {
-//			// checks if we have already visited the page so we do not add it again
-//			//use code like this to make sure only one thread manipulates urls at a time.
-//			synchronized(pagesVisited){
-//				//TODO add code to check that the url is not dissallowed in a robots.text
-//				while(pagesVisited.contains(url)) {
-//					url = getNextUrl();
-//				}
-//				pagesVisited.add(url);
-//		        // System.out.println(pagesVisited.size());
-//			}
-//			ArrayList<String> found = this.retriveDocumentLinks(url);
-//			synchronized(urlsToCrawl) {
-//				for(int i = 0; i < found.size(); ++i) {
-//					urlsToCrawl.add(found.get(i));
-//				}
-//			}
-//		} while(url != null);
-//    }
 
     private void crawl() {
 	    System.out.println("thread started: " + threadNumber);
+	    for (String url = getNextUrl(); url != null; url = getNextUrl()) {
+            try {
+                Document document = Jsoup.connect(url).get();
+                // document successfully retrieved
 
-	    for (String nextUrl = getNextUrl(); nextUrl != null; nextUrl = getNextUrl()) {
-	        // visit the next url
-            synchronized (pagesVisited) {
-                pagesVisited.add(nextUrl);
-            }
-	        ArrayList<String> newLinks = retriveDocumentLinks(nextUrl);
+                // save page
+                savePage(document, url);
 
-	        synchronized(urlsToCrawl) {
-	            for (String s : newLinks) {
-	                // only put unvisited pages into frontier
-	                if (!pagesVisited.contains(s)) {
-	                    urlsToCrawl.add(s);
-                    }
-                }
+                // add new links in the document to crawl
+                addNewLinksFromDocument(document);
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+                /* This catches "...Unhandled content type. Must be text/*, application/xml, or application/xhtml+xml..." trace in output, which
+                 * happens when we try to parse unsupported content type, such as PDF. This helps us satisfy the requirement that PDF should not be
+                 * parsed. Need to confirm that this exception appears when downloading an image file, and we should be set in this department.
+                 */
             }
         }
     }
@@ -113,13 +83,13 @@ public class CrawlerThread extends Thread {
             // TODO come up with a better file naming convention that will actually work. this does not work all the time
             // it was just a test to see if it would work. My thought was we might need to backtrack to the url the html
             //comes from in the second stage to get a more complete page
+
             BufferedWriter writer =
               new BufferedWriter(new FileWriter(".\\data\\" +pageUrl.replaceAll("[:]", "").replaceAll("[/]", "") + ".html"));
 
             writer.write(doc.html());
-
             writer.close();
-            System.out.println("Successfully Downloaded.");
+//            System.out.println("Successfully Downloaded.");
 	    }
 	    // Exceptions
         catch (MalformedURLException mue) {
@@ -128,24 +98,58 @@ public class CrawlerThread extends Thread {
 	    catch (IOException ie) {
 	        System.out.println("IOException raised");
 	    }
-	 }
-	    
-    private ArrayList<String> retriveDocumentLinks(String URL) {
-    	Document doc;
+	}
+
+    private void addNewLinksFromDocument(Document document) {
 		ArrayList<String> linkUrls = new ArrayList<>();
-		try {
-			doc = Jsoup.connect(URL).get();
-			Elements links = doc.select("a[href]");
-			for(int i = 0; i < links.size(); ++i) {
-				linkUrls.add(links.get(i).attr("abs:href"));
-			}
-			savePage(doc, URL);
-//	    	String relHref = link.attr("href"); // == "/"
-//	    	String absHref = link.attr("abs:href"); // "http://jsoup.org/"
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-    	return linkUrls;
+        Elements links = document.select("a[href]");
+        for (int i = 0; i < links.size(); i++) {
+            String newLink = links.get(i).attr("abs:href"); // get absolute path when possible
+            if (!newLink.startsWith("http://")) continue; // parse only http links (avoid ftp, https, or any other protocol). removes some urls that we do not want, such as "mailto"
+            newLink = cleanupUpUrl(newLink); // cleanup: sharp, casing, encoding
+
+            synchronized (seenPages) {
+                if (!seenPages.contains(newLink)) {
+                    System.out.println(newLink); // temporary print statement
+                    seenPages.add(newLink);
+                    linkUrls.add(newLink);
+                }
+            }
+        }
+
+        synchronized(urlsToCrawl) {
+            urlsToCrawl.addAll(linkUrls);
+        }
+    }
+
+
+    private String cleanupUpUrl(String oldUrl) {
+        String newUrl = removeSharpFromUrl(oldUrl) // avoid dups: strip off sharps
+                .toLowerCase(); // convert to lowercase to avoid dups from casing
+
+        // encode url spaces and other characters: https://stackoverflow.com/a/25735202
+        try {
+            URL url = new URL(newUrl);
+            URI uri = new URI(url.getProtocol(), url.getUserInfo(), url.getHost(), url.getPort(), url.getPath(), url.getQuery(), url.getRef());
+            newUrl = uri.toASCIIString();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return newUrl;
+    }
+
+    private String removeSharpFromUrl(String url) {
+	    int sharpPosition = url.lastIndexOf("#");
+	    if (sharpPosition < 0) {
+	        return url; // no sharp in the url
+        }
+
+	    // deals with .../#!/... which we do not want to remove
+        int sharpExclamationPosition = url.lastIndexOf("#!");
+        if (sharpPosition != sharpExclamationPosition) { // # that we found is not part of a /#!/ sequence
+            return removeSharpFromUrl(url.substring(0, sharpPosition));
+        } else {
+            return url;
+        }
     }
 }
