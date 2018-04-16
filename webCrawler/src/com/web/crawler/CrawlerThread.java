@@ -7,8 +7,10 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Scanner;
 import java.util.Set;
@@ -23,7 +25,7 @@ public class CrawlerThread extends Thread {
 	//might need to make a node of this to track the depth along with the url. or possible just a set.
     private static Set<String> pagesVisited = new HashSet<>();
     //just an idea. this will use more memory but will decrease the number of times we need to request the robots.txt by storing the results.
-    private static ArrayList<robotTextNode> crawlPermissions = new ArrayList<>();
+    private static Map<String, ArrayList<String>> crawlPermissions = new HashMap<String, ArrayList<String>>();
 	//from the todo in the main make this initialized by a file not static
     final private static Queue<String> urlsToCrawl = new LinkedList<>(Arrays.asList("http://www.ucr.edu/", "https://www.american.edu/", "https://www.sdsu.edu/"
 			, "http://www.rccd.edu", "https://ucsd.edu/", "https://www.berkeley.edu/", "https://uci.edu/", "http://www.ucla.edu/", "https://www.csusm.edu/", 
@@ -64,37 +66,69 @@ public class CrawlerThread extends Thread {
 //    }
 
     private void crawl() {
-	    System.out.println("thread started: " + threadNumber);
-
+//	    System.out.println("thread started: " + threadNumber);
 	    for (String nextUrl = getNextUrl(); nextUrl != null; nextUrl = getNextUrl()) {
 	        // visit the next url
             synchronized (pagesVisited) {
                 pagesVisited.add(nextUrl);
             }
-	        ArrayList<String> newLinks = retriveDocumentLinks(nextUrl);
-
-	        synchronized(urlsToCrawl) {
-	            for (String s : newLinks) {
-	                // only put unvisited pages into frontier
-	                if (!pagesVisited.contains(s)) {
-	                    urlsToCrawl.add(s);
-                    }
-                }
-            }
+            URL page;
+			try {
+				page = new URL(nextUrl);
+				synchronized(this.crawlPermissions) {
+					if(this.crawlPermissions.get(page.getHost()) == null)
+						getRobotPermission(page.getHost());
+				}
+				if(canCrawl(page.getHost(),page.getPath())) {
+			        ArrayList<String> newLinks = retriveDocumentLinks(nextUrl);
+		
+			        synchronized(urlsToCrawl) {
+			            for (String s : newLinks) {
+			                // only put unvisited pages into frontier
+			                if (!pagesVisited.contains(s)) {
+			                    urlsToCrawl.add(s);
+		                    }
+		                }
+		            }
+				}
+			} catch (MalformedURLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
         }
     }
 
     //function to get and update and save robot.txt permissions to crawlerPermissions
     private void getRobotPermission(String rootUrl) {
 	    URL url;
+	    Scanner s = null;
 		try {
-			url = new URL(rootUrl);
-			Scanner s = new Scanner(url.openStream());
+			url = new URL("http://" + rootUrl + "/robots.txt");
+			s = new Scanner(url.openStream());
 			//TODO use the scanner to read this file and store disallowed
+			ArrayList<String> commands = new ArrayList<>();
+			while(s.hasNextLine()) {
+				String next = s.nextLine();
+				if(next.toLowerCase().equals("user-agent: *")) {
+					String command;
+					while(s.hasNextLine() && (!(command = s.nextLine().toLowerCase()).contains("user-agent:"))){
+						if(command.contains("disallow:")) {
+							commands.add(command.split(":")[1].trim());
+						}
+					}
+				}
+			}
+			s.close();
+			synchronized(this.crawlPermissions) {
+				this.crawlPermissions.put(rootUrl, commands);
+			}
 		} catch (MalformedURLException e) {
-			e.printStackTrace();
+//			e.printStackTrace();
 		} catch (IOException e) {
-			e.printStackTrace();
+//			e.printStackTrace();
+		} finally {
+			if(s != null)
+				s.close();
 		}
 	}
 
@@ -113,13 +147,12 @@ public class CrawlerThread extends Thread {
             // TODO come up with a better file naming convention that will actually work. this does not work all the time
             // it was just a test to see if it would work. My thought was we might need to backtrack to the url the html
             //comes from in the second stage to get a more complete page
-            BufferedWriter writer =
+	    	BufferedWriter writer =
               new BufferedWriter(new FileWriter(".\\data\\" +pageUrl.replaceAll("[:]", "").replaceAll("[/]", "") + ".html"));
 
             writer.write(doc.html());
-
+            
             writer.close();
-            System.out.println("Successfully Downloaded.");
 	    }
 	    // Exceptions
         catch (MalformedURLException mue) {
@@ -129,6 +162,18 @@ public class CrawlerThread extends Thread {
 	        System.out.println("IOException raised");
 	    }
 	 }
+	
+	private Boolean canCrawl(String root, String path) {
+		ArrayList<String> disallowed = this.crawlPermissions.get(root);
+		if(disallowed != null) {
+			for(int i = 0; i < disallowed.size(); ++i) {
+				if(path.startsWith(disallowed.get(i))) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
 	    
     private ArrayList<String> retriveDocumentLinks(String URL) {
     	Document doc;
@@ -140,8 +185,6 @@ public class CrawlerThread extends Thread {
 				linkUrls.add(links.get(i).attr("abs:href"));
 			}
 			savePage(doc, URL);
-//	    	String relHref = link.attr("href"); // == "/"
-//	    	String absHref = link.attr("abs:href"); // "http://jsoup.org/"
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
