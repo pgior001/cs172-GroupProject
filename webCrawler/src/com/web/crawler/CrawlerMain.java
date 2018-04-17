@@ -33,7 +33,7 @@ public class CrawlerMain {
         List<String> rootPages = new ArrayList<>();
 
         URL path = CrawlerMain.class.getResource("rootpages");
-        File file = new File(path.getFile());
+        File file = new File(path.getFile().replaceAll("%20", " "));
 
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             String line;
