@@ -23,7 +23,7 @@ public class CrawlerMain {
     	final int cores = Runtime.getRuntime().availableProcessors();
     	ArrayList<CrawlerThread> threads = new ArrayList<>();
     	//spawns all the crawler threads
-    	for(int i = 0; i < cores; ++i) {
+    	for(int i = 0; i < cores * 40; ++i) {
     		threads.add(new CrawlerThread(i));
     		threads.get(i).start();
     	}

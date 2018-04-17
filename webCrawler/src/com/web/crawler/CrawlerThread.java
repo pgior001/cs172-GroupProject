@@ -32,6 +32,7 @@ public class CrawlerThread extends Thread {
 		}
 	}
 
+	private robotTextReader robotText = new robotTextReader();
 	private int threadNumber;
 	private int maxHops = 6;
 	private static boolean init = false;
@@ -54,7 +55,7 @@ public class CrawlerThread extends Thread {
     private void crawl() {
 	    for (UrlNode urlNode = getNextUrl(); urlNode != null; urlNode = getNextUrl()) {
             try {
-//            	System.out.println("Url: " + urlNode.url + " Hop count: " + urlNode.hops);//wanted to check the hop count and the url
+            	System.out.println("Url: " + urlNode.url + " Hop count: " + urlNode.hops);//wanted to check the hop count and the url
                 Document document = Jsoup.connect(urlNode.url).get();
                 // document successfully retrieved
 
@@ -78,51 +79,6 @@ public class CrawlerThread extends Thread {
             }
         }
     }
-
-    //function to get and update and save robot.txt permissions to crawlerPermissions
-    private void getRobotPermission(String rootUrl) {
-	    URL url;
-	    Scanner s = null;
-		try {
-			url = new URL("http://" + rootUrl + "/robots.txt");
-			HttpURLConnection huc = (HttpURLConnection) url.openConnection();
-			int responseCode = huc.getResponseCode();
-
-			if (responseCode == 200) {
-				s = new Scanner(url.openStream());
-				//TODO use the scanner to read this file and store disallowed
-				ArrayList<String> commands = new ArrayList<>();
-				while(s.hasNextLine()) {
-					String next = s.nextLine();
-					if(next.toLowerCase().equals("user-agent: *")) {
-						String command;
-						while(s.hasNextLine() && (!(command = s.nextLine().toLowerCase()).contains("user-agent:"))){
-							if(command.contains("disallow:")) {
-								if(commands.size() > 1)
-								commands.add(command.split(":")[1].trim());
-							}
-						}
-					}
-				}
-				s.close();
-				synchronized(this.crawlPermissions) {
-					this.crawlPermissions.put(rootUrl, commands);
-				}
-			} else {
-				synchronized(this.crawlPermissions) {
-					this.crawlPermissions.put(rootUrl, new ArrayList<>());
-				}
-			}
-		} catch (MalformedURLException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			System.out.println("http://" + rootUrl + "/robots.txt");
-			e.printStackTrace();
-		} finally {
-			if(s != null)
-				s.close();
-		}
-	}
 
     private UrlNode getNextUrl() {
 	    synchronized(urlsToCrawl) {
@@ -164,22 +120,14 @@ public class CrawlerThread extends Thread {
             newLink = cleanupUpUrl(newLink); // cleanup: sharp, casing, encoding
             if(!newLink.contains(".edu"))
             	continue;
-            try {
-                URL page = new URL(newLink);
-                if (crawlPermissions.get(page.getHost()) == null) {
-                    getRobotPermission(page.getHost());
-                }
-                if (canCrawl(page.getHost(), page.getPath())) {
-                    synchronized (seenPages) {
-                        if (!seenPages.contains(newLink)) {
-                            // System.out.println(newLink); // temporary print statement
-                            seenPages.add(newLink);
-                            linkUrls.add(new UrlNode(newLink, hopNumber + 1));
-                        }
+            if (robotText.robotsShouldFollow(newLink)) {
+                synchronized (seenPages) {
+                    if (!seenPages.contains(newLink)) {
+                        // System.out.println(newLink); // temporary print statement
+                        seenPages.add(newLink);
+                        linkUrls.add(new UrlNode(newLink, hopNumber + 1));
                     }
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
             }
         }
 
@@ -217,18 +165,6 @@ public class CrawlerThread extends Thread {
             return url;
         }
 	 }
-	
-	private Boolean canCrawl(String root, String path) {
-		ArrayList<String> disallowed = this.crawlPermissions.get(root);
-		if(disallowed != null) {
-			for(int i = 0; i < disallowed.size(); ++i) {
-				if(path.startsWith(disallowed.get(i))) {
-					return false;
-				}
-			}
-		}
-		return true;
-	}
 
     private static LinkedList<UrlNode> initUrlsToCrawl() {
         LinkedList<UrlNode> list = new LinkedList<>();
