@@ -3,6 +3,7 @@ package com.web.crawler;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
@@ -53,7 +54,7 @@ public class CrawlerThread extends Thread {
     private void crawl() {
 	    for (UrlNode urlNode = getNextUrl(); urlNode != null; urlNode = getNextUrl()) {
             try {
-            	System.out.println("Url: " + urlNode.url + " Hop count: " + urlNode.hops);//wanted to check the hop count and the url
+//            	System.out.println("Url: " + urlNode.url + " Hop count: " + urlNode.hops);//wanted to check the hop count and the url
                 Document document = Jsoup.connect(urlNode.url).get();
                 // document successfully retrieved
 
@@ -69,7 +70,7 @@ public class CrawlerThread extends Thread {
                 }
             } catch (IOException e) {
                 // TODO Auto-generated catch block
-                e.printStackTrace();
+//                e.printStackTrace();
                 /* This catches "...Unhandled content type. Must be text/*, application/xml, or application/xhtml+xml..." trace in output, which
                  * happens when we try to parse unsupported content type, such as PDF. This helps us satisfy the requirement that PDF should not be
                  * parsed. Need to confirm that this exception appears when downloading an image file, and we should be set in this department.
@@ -84,28 +85,39 @@ public class CrawlerThread extends Thread {
 	    Scanner s = null;
 		try {
 			url = new URL("http://" + rootUrl + "/robots.txt");
-			s = new Scanner(url.openStream());
-			//TODO use the scanner to read this file and store disallowed
-			ArrayList<String> commands = new ArrayList<>();
-			while(s.hasNextLine()) {
-				String next = s.nextLine();
-				if(next.toLowerCase().equals("user-agent: *")) {
-					String command;
-					while(s.hasNextLine() && (!(command = s.nextLine().toLowerCase()).contains("user-agent:"))){
-						if(command.contains("disallow:")) {
-							commands.add(command.split(":")[1].trim());
+			HttpURLConnection huc = (HttpURLConnection) url.openConnection();
+			int responseCode = huc.getResponseCode();
+
+			if (responseCode == 200) {
+				s = new Scanner(url.openStream());
+				//TODO use the scanner to read this file and store disallowed
+				ArrayList<String> commands = new ArrayList<>();
+				while(s.hasNextLine()) {
+					String next = s.nextLine();
+					if(next.toLowerCase().equals("user-agent: *")) {
+						String command;
+						while(s.hasNextLine() && (!(command = s.nextLine().toLowerCase()).contains("user-agent:"))){
+							if(command.contains("disallow:")) {
+								if(commands.size() > 1)
+								commands.add(command.split(":")[1].trim());
+							}
 						}
 					}
 				}
-			}
-			s.close();
-			synchronized(this.crawlPermissions) {
-				this.crawlPermissions.put(rootUrl, commands);
+				s.close();
+				synchronized(this.crawlPermissions) {
+					this.crawlPermissions.put(rootUrl, commands);
+				}
+			} else {
+				synchronized(this.crawlPermissions) {
+					this.crawlPermissions.put(rootUrl, new ArrayList<>());
+				}
 			}
 		} catch (MalformedURLException e) {
-//			e.printStackTrace();
+			e.printStackTrace();
 		} catch (IOException e) {
-//			e.printStackTrace();
+			System.out.println("http://" + rootUrl + "/robots.txt");
+			e.printStackTrace();
 		} finally {
 			if(s != null)
 				s.close();
@@ -150,12 +162,12 @@ public class CrawlerThread extends Thread {
             String newLink = links.get(i).attr("abs:href"); // get absolute path when possible
             if (!newLink.startsWith("http://")) continue; // parse only http links (avoid ftp, https, or any other protocol). removes some urls that we do not want, such as "mailto"
             newLink = cleanupUpUrl(newLink); // cleanup: sharp, casing, encoding
-
+            if(!newLink.contains(".edu"))
+            	continue;
             try {
                 URL page = new URL(newLink);
-                synchronized (crawlPermissions) {
-                    if (crawlPermissions.get(page.getHost()) == null)
-                        getRobotPermission(page.getHost());
+                if (crawlPermissions.get(page.getHost()) == null) {
+                    getRobotPermission(page.getHost());
                 }
                 if (canCrawl(page.getHost(), page.getPath())) {
                     synchronized (seenPages) {
