@@ -5,27 +5,27 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 
 //class that will take inputs and initialize the crawler and all of its threads.
 // TODO make the crawler take a seed file for the start pages.
 public class CrawlerMain {
-    public static List<String> rootPages = getRootPages();
+    public static List<String> rootPages;
     public static int numPages;
     public static int hopsAway;
+    public static String seedFile;
+    public static String outputDirectory;
     
 
     public static void main(String args[]){
     	//for eventual use in reading in the command line arguments for the files.
-    	//String seedFile = args[1];
-    	//numPages = Integer.parseInt(args[2]);
-    	//hopsAway should be Integer.parseInt(args[3]);
-    	hopsAway = Integer.parseInt(args[0]);
-    	//String outputDirectory = args[4];
+    	//command line argument: rootpages 10000 6 C:\\Users\\Asus\\Downloads\\downloadscrawler\\
+    	seedFile = args[0];
+    	numPages = Integer.parseInt(args[1]);
+    	hopsAway = Integer.parseInt(args[2]);
+    	outputDirectory = args[3];
+    	rootPages = getRootPages();
     	
     	//checks the number of threads that your processor can run at once.
     	final int cores = Runtime.getRuntime().availableProcessors();
@@ -40,8 +40,9 @@ public class CrawlerMain {
     private static List<String> getRootPages() {
         List<String> rootPages = new ArrayList<>();
 
-        URL path = CrawlerMain.class.getResource("rootpages");
-        File file = new File(path.getFile());
+        //rootpages is the resource
+        URL path = CrawlerMain.class.getResource(seedFile);
+        File file = new File(path.getFile().replaceAll("%20", " "));
 
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             String line;
