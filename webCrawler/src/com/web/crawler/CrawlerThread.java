@@ -85,7 +85,7 @@ public class CrawlerThread extends Thread {
                 // add new links in the document to crawl
                 //check its under the hop limit
                 //addNewLinksFromDocument(document);
-                if(urlN.getHops() < 6)
+                if(urlN.getHops() < CrawlerMain.hopsAway)
                 {
                 	addNewLinksFromDocument(document,urlN.getHops());
                 }
