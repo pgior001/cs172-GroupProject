@@ -62,10 +62,11 @@ public class CrawlerThread extends Thread {
             		if(pageCount >= maxPages)
                     {
                     	break;
+                    } else {
+                    	pageCount++;
                     }
             	}
-            	pageCount++;
-            	System.out.println("Url: " + urlNode.url + " Hop count: " + urlNode.hops + " Page count: " + pageCount);//wanted to check the hop count and the url
+//            	System.out.println("Url: " + urlNode.url + " Hop count: " + urlNode.hops + " Page count: " + pageCount);//wanted to check the hop count and the url
                 Document document = Jsoup.connect(urlNode.url).get();
                 // document successfully retrieved
 
@@ -105,8 +106,12 @@ public class CrawlerThread extends Thread {
             // TODO come up with a better file naming convention that will actually work. this does not work all the time
             // it was just a test to see if it would work. My thought was we might need to backtrack to the url the html
             //comes from in the second stage to get a more complete page
+	    	String fileName = CrawlerMain.outputDirectory + "\\" + pageUrl.replaceAll("[:]", "").replaceAll("[/]", "") + ".html";
+	    	if(fileName.contains("?"))
+	    		fileName.replaceAll("[?]", "");
+	    	System.out.println(fileName);
 	    	BufferedWriter writer =
-              new BufferedWriter(new FileWriter(CrawlerMain.outputDirectory + "\\" + pageUrl.replaceAll("[:]", "").replaceAll("[/]", "") + ".html"));
+              new BufferedWriter(new FileWriter(fileName));
 
             writer.write(doc.html());
             writer.close();
@@ -117,6 +122,7 @@ public class CrawlerThread extends Thread {
 	    }
 	    catch (IOException ie) {
 	        System.out.println("IOException raised");
+	        System.out.println(ie);
 	    }
 	}
 	

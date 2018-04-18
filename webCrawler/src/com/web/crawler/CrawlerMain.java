@@ -12,21 +12,26 @@ import java.util.List;
 // TODO make the crawler take a seed file for the start pages.
 public class CrawlerMain {
     public static List<String> rootPages;
-    public static int numPages;
-    public static int hopsAway;
-    public static String seedFile;
-    public static String outputDirectory;
+    public static int numPages = 200;
+    public static int hopsAway = 6;
+    public static String seedFile = "rootpages";
+    public static String outputDirectory = "C:\\\\Users\\\\Preston Giorgianni\\\\Downloads\\\\downloadscrawler\\";
     
 
     public static void main(String args[]){
     	//for eventual use in reading in the command line arguments for the files.
     	//command line argument: rootpages 10000 6 C:\\Users\\Asus\\Downloads\\downloadscrawler\\
     	//change outputDirectory for yourself
-    	seedFile = args[0];
-    	numPages = Integer.parseInt(args[1]);
-    	hopsAway = Integer.parseInt(args[2]);
-    	outputDirectory = args[3];
-    	rootPages = getRootPages();
+    	if(args.length > 1) {
+	    	seedFile = args[0];
+	    	numPages = Integer.parseInt(args[1]);
+	    	hopsAway = Integer.parseInt(args[2]);
+	    	outputDirectory = args[3];
+	    	rootPages = getRootPages();
+    	} else {
+    		System.out.println("test");
+	    	rootPages = getRootPages();
+    	}
     	
     	//checks the number of threads that your processor can run at once.
     	final int cores = Runtime.getRuntime().availableProcessors();
