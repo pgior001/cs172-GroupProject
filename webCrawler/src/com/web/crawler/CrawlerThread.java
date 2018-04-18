@@ -3,6 +3,7 @@ package com.web.crawler;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
@@ -31,6 +32,7 @@ public class CrawlerThread extends Thread {
 		}
 	}
 
+	private robotTextReader robotText = new robotTextReader();
 	private int threadNumber;
 	private int maxHops = CrawlerMain.hopsAway;
 	private int maxPages = CrawlerMain.numPages;
@@ -76,7 +78,7 @@ public class CrawlerThread extends Thread {
                 }
             } catch (IOException e) {
                 // TODO Auto-generated catch block
-                e.printStackTrace();
+//                e.printStackTrace();
                 /* This catches "...Unhandled content type. Must be text/*, application/xml, or application/xhtml+xml..." trace in output, which
                  * happens when we try to parse unsupported content type, such as PDF. This helps us satisfy the requirement that PDF should not be
                  * parsed. Need to confirm that this exception appears when downloading an image file, and we should be set in this department.
@@ -84,40 +86,6 @@ public class CrawlerThread extends Thread {
             }
         }
     }
-
-    //function to get and update and save robot.txt permissions to crawlerPermissions
-    private void getRobotPermission(String rootUrl) {
-	    URL url;
-	    Scanner s = null;
-		try {
-			url = new URL("http://" + rootUrl + "/robots.txt");
-			s = new Scanner(url.openStream());
-			//TODO use the scanner to read this file and store disallowed
-			ArrayList<String> commands = new ArrayList<>();
-			while(s.hasNextLine()) {
-				String next = s.nextLine();
-				if(next.toLowerCase().equals("user-agent: *")) {
-					String command;
-					while(s.hasNextLine() && (!(command = s.nextLine().toLowerCase()).contains("user-agent:"))){
-						if(command.contains("disallow:")) {
-							commands.add(command.split(":")[1].trim());
-						}
-					}
-				}
-			}
-			s.close();
-			synchronized(this.crawlPermissions) {
-				this.crawlPermissions.put(rootUrl, commands);
-			}
-		} catch (MalformedURLException e) {
-//			e.printStackTrace();
-		} catch (IOException e) {
-//			e.printStackTrace();
-		} finally {
-			if(s != null)
-				s.close();
-		}
-	}
 
     private UrlNode getNextUrl() {
 	    synchronized(urlsToCrawl) {
@@ -157,24 +125,16 @@ public class CrawlerThread extends Thread {
             String newLink = links.get(i).attr("abs:href"); // get absolute path when possible
             if (!newLink.startsWith("http://")) continue; // parse only http links (avoid ftp, https, or any other protocol). removes some urls that we do not want, such as "mailto"
             newLink = cleanupUpUrl(newLink); // cleanup: sharp, casing, encoding
-
-            try {
-                URL page = new URL(newLink);
-                synchronized (crawlPermissions) {
-                    if (crawlPermissions.get(page.getHost()) == null)
-                        getRobotPermission(page.getHost());
-                }
-                if (canCrawl(page.getHost(), page.getPath())) {
-                    synchronized (seenPages) {
-                        if (!seenPages.contains(newLink)) {
-                            // System.out.println(newLink); // temporary print statement
-                            seenPages.add(newLink);
-                            linkUrls.add(new UrlNode(newLink, hopNumber + 1));
-                        }
+            if(!newLink.contains(".edu"))
+            	continue;
+            if (robotText.robotsShouldFollow(newLink)) {
+                synchronized (seenPages) {
+                    if (!seenPages.contains(newLink)) {
+                        // System.out.println(newLink); // temporary print statement
+                        seenPages.add(newLink);
+                        linkUrls.add(new UrlNode(newLink, hopNumber + 1));
                     }
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
             }
         }
 
@@ -212,18 +172,6 @@ public class CrawlerThread extends Thread {
             return url;
         }
 	 }
-	
-	private Boolean canCrawl(String root, String path) {
-		ArrayList<String> disallowed = this.crawlPermissions.get(root);
-		if(disallowed != null) {
-			for(int i = 0; i < disallowed.size(); ++i) {
-				if(path.startsWith(disallowed.get(i))) {
-					return false;
-				}
-			}
-		}
-		return true;
-	}
 
     private static LinkedList<UrlNode> initUrlsToCrawl() {
         LinkedList<UrlNode> list = new LinkedList<>();
