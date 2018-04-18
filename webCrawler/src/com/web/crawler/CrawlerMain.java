@@ -21,6 +21,7 @@ public class CrawlerMain {
     public static void main(String args[]){
     	//for eventual use in reading in the command line arguments for the files.
     	//command line argument: rootpages 10000 6 C:\\Users\\Asus\\Downloads\\downloadscrawler\\
+    	//change outputDirectory for yourself
     	seedFile = args[0];
     	numPages = Integer.parseInt(args[1]);
     	hopsAway = Integer.parseInt(args[2]);

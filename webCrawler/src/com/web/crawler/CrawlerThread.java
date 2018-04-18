@@ -57,6 +57,13 @@ public class CrawlerThread extends Thread {
     private void crawl() {
 	    for (UrlNode urlNode = getNextUrl(); urlNode != null; urlNode = getNextUrl()) {
             try {
+            	synchronized(this)
+            	{
+            		if(pageCount >= maxPages)
+                    {
+                    	break;
+                    }
+            	}
             	pageCount++;
             	System.out.println("Url: " + urlNode.url + " Hop count: " + urlNode.hops + " Page count: " + pageCount);//wanted to check the hop count and the url
                 Document document = Jsoup.connect(urlNode.url).get();
@@ -71,10 +78,6 @@ public class CrawlerThread extends Thread {
                 if(urlNode.hops < this.maxHops)
                 {
                 	addNewLinksFromDocument(document, urlNode.hops);
-                }
-                if(pageCount >= maxPages)
-                {
-                	break;
                 }
             } catch (IOException e) {
                 // TODO Auto-generated catch block
