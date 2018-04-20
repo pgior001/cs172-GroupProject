@@ -31,11 +31,12 @@ public class CrawlerThread extends Thread {
 			this.hops = hops;
 		}
 	}
-
+	public static BufferedWriter index = CrawlerMain.index;
+	private static String pageCountSync = "";
 	private robotTextReader robotText = new robotTextReader();
 	private int threadNumber;
 	private int maxHops = CrawlerMain.hopsAway;
-	private int maxPages = CrawlerMain.numPages;
+	private static int maxPages = CrawlerMain.numPages;
 	private static int pageCount = 0;
 	private static boolean init = false;
     private static Map<String, ArrayList<String>> crawlPermissions = new HashMap<String, ArrayList<String>>();
@@ -57,16 +58,14 @@ public class CrawlerThread extends Thread {
     private void crawl() {
 	    for (UrlNode urlNode = getNextUrl(); urlNode != null; urlNode = getNextUrl()) {
             try {
-            	synchronized(this)
+            	System.out.println("Url: " + urlNode.url + " Hop count: " + urlNode.hops + " Page count: " + pageCount);//wanted to check the hop count and the url
+            	synchronized(pageCountSync)
             	{
-            		if(pageCount >= maxPages)
+            		if(pageCount > maxPages)
                     {
-                    	break;
-                    } else {
-                    	pageCount++;
+                    	return;
                     }
             	}
-//            	System.out.println("Url: " + urlNode.url + " Hop count: " + urlNode.hops + " Page count: " + pageCount);//wanted to check the hop count and the url
                 Document document = Jsoup.connect(urlNode.url).get();
                 // document successfully retrieved
 
@@ -106,12 +105,22 @@ public class CrawlerThread extends Thread {
             // TODO come up with a better file naming convention that will actually work. this does not work all the time
             // it was just a test to see if it would work. My thought was we might need to backtrack to the url the html
             //comes from in the second stage to get a more complete page
-	    	String fileName = CrawlerMain.outputDirectory + "\\" + pageUrl.replaceAll("[:]", "").replaceAll("[/]", "") + ".html";
-	    	if(fileName.contains("?"))
-	    		fileName.replaceAll("[?]", "");
-	    	System.out.println(fileName);
+	    	String fileName;
+	    	String pageNum;
+	    	synchronized(pageCountSync) {
+	    		fileName = CrawlerMain.outputDirectory + "\\" + String.valueOf(pageCount) + ".html";
+	    		pageNum = String.valueOf(pageCount);
+	    		++pageCount;
+	    	}
+	    	if(pageCount > maxPages)
+	    		return;
 	    	BufferedWriter writer =
               new BufferedWriter(new FileWriter(fileName));
+	    	synchronized(index) {
+	    		index.write(pageNum + ""
+	    				+ "|" + pageUrl.toString() + "\n");
+	    		index.flush();
+	    	}
 
             writer.write(doc.html());
             writer.close();

@@ -1,8 +1,10 @@
 package com.web.crawler;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -12,25 +14,26 @@ import java.util.List;
 // TODO make the crawler take a seed file for the start pages.
 public class CrawlerMain {
     public static List<String> rootPages;
-    public static int numPages = 200;
-    public static int hopsAway = 6;
-    public static String seedFile = "rootpages";
-    public static String outputDirectory = "C:\\\\Users\\\\Preston Giorgianni\\\\Downloads\\\\downloadscrawler\\";
+    public static int numPages;
+    public static int hopsAway;
+    public static String seedFile;
+    public static String outputDirectory;
+    public static BufferedWriter index; 
     
 
     public static void main(String args[]){
     	//for eventual use in reading in the command line arguments for the files.
     	//command line argument: rootpages 10000 6 C:\\Users\\Asus\\Downloads\\downloadscrawler\\
     	//change outputDirectory for yourself
-    	if(args.length > 1) {
-	    	seedFile = args[0];
-	    	numPages = Integer.parseInt(args[1]);
-	    	hopsAway = Integer.parseInt(args[2]);
-	    	outputDirectory = args[3];
-	    	rootPages = getRootPages();
-    	} else {
-    		System.out.println("test");
-	    	rootPages = getRootPages();
+    	seedFile = args[0];
+    	numPages = Integer.parseInt(args[1]);
+    	hopsAway = Integer.parseInt(args[2]);
+    	outputDirectory = args[3];
+    	rootPages = getRootPages();
+    	try {
+    		index = new BufferedWriter(new FileWriter(CrawlerMain.outputDirectory + "\\index.txt"));
+    	} catch (IOException e) {
+    		
     	}
     	
     	//checks the number of threads that your processor can run at once.
