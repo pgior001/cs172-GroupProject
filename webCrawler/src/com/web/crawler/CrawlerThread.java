@@ -19,6 +19,8 @@ import java.util.Set;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
+import org.jsoup.nodes.Element;
+
 
 //core of the crawler containing functions to call to run the crawler
 public class CrawlerThread extends Thread {
@@ -26,9 +28,13 @@ public class CrawlerThread extends Thread {
 	private static class UrlNode{
 		public String url;
 		public int hops;
+		public boolean allowAddLinks;
+		public boolean allowIndex;
 		public UrlNode(String url, int hops) {
 			this.url = url;
 			this.hops = hops;
+			allowAddLinks = true;
+			allowIndex = true;
 		}
 	}
 	public static BufferedWriter index = CrawlerMain.index;
@@ -58,26 +64,43 @@ public class CrawlerThread extends Thread {
     private void crawl() {
 	    for (UrlNode urlNode = getNextUrl(); urlNode != null; urlNode = getNextUrl()) {
             try {
-            	System.out.println("Url: " + urlNode.url + " Hop count: " + urlNode.hops + " Page count: " + pageCount);//wanted to check the hop count and the url
             	synchronized(pageCountSync)
             	{
             		if(pageCount > maxPages)
                     {
-                    	return;
+            			break;
                     }
             	}
+            	System.out.println("Url: " + urlNode.url + " Hop count: " + urlNode.hops + " Page count: " + pageCount);//wanted to check the hop count and the url
                 Document document = Jsoup.connect(urlNode.url).get();
                 // document successfully retrieved
-
+                
+                //check to see if doc can be indexed and if new links can be added from it
+                checkDoc(document,urlNode);
+                
                 // save page
-                savePage(document, urlNode.url);
+                if(urlNode.allowIndex)
+                {
+                	savePage(document, urlNode.url);
+                }
+                else
+                {
+                	System.out.println("NO INDEXING!!!!!!!!!!!! WEBSITE: " + urlNode.url);
+                }
 
                 // add new links in the document to crawl
                 //check its under the hop limit
                 //addNewLinksFromDocument(document);
                 if(urlNode.hops < this.maxHops)
                 {
-                	addNewLinksFromDocument(document, urlNode.hops);
+                	if(urlNode.allowAddLinks)
+                	{
+                		addNewLinksFromDocument(document, urlNode.hops);
+                	}
+                	else
+                	{
+                		System.out.println("NO FOLLOWING!!!!!!!!!!!! WEBSITE: " + urlNode.url);
+                	}
                 }
             } catch (IOException e) {
                 // TODO Auto-generated catch block
@@ -99,6 +122,31 @@ public class CrawlerThread extends Thread {
             }
 	    }
 	}
+    
+    private static void checkDoc(Document document, UrlNode uNode)
+    {
+    	// TODO come up with a better file naming convention that will actually work. this does not work all the time
+		// it was just a test to see if it would work. My thought was we might need to backtrack to the url the html
+		//comes from in the second stage to get a more complete page
+		Elements metas = document.getElementsByTag("meta");
+		for (Element metaTag : metas)
+		{
+			String content = metaTag.attr("content");
+			String name = metaTag.attr("name");
+			
+			if(name.equals("robots"))
+			{
+				if(content.toLowerCase().contains("nofollow"))
+				{
+					uNode.allowAddLinks = false;
+				}
+				if(content.toLowerCase().contains("noindex"))
+				{
+					uNode.allowIndex = false;
+				}
+			}
+		}
+    }
 
 	private static void savePage(Document doc, String pageUrl) {
 	    try {
