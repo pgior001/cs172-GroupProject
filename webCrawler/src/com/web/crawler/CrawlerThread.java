@@ -115,7 +115,7 @@ public class CrawlerThread extends Thread {
 	    	if(pageCount > maxPages)
 	    		return;
 	    	BufferedWriter writer =
-              new BufferedWriter(new FileWriter(fileName));
+              new BufferedWriter(new FileWriter(fileName)); 
 	    	synchronized(index) {
 	    		index.write(pageNum + ""
 	    				+ "|" + pageUrl.toString() + "\n");
