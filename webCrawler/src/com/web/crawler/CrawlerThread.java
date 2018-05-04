@@ -1,6 +1,7 @@
 package com.web.crawler;
 
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -156,7 +157,7 @@ public class CrawlerThread extends Thread {
 	    	String fileName;
 	    	String pageNum;
 	    	synchronized(pageCountSync) {
-	    		fileName = CrawlerMain.outputDirectory + "\\" + String.valueOf(pageCount) + ".html";
+	    		fileName = CrawlerMain.outputDirectory + File.separator + String.valueOf(pageCount) + ".html";
 	    		pageNum = String.valueOf(pageCount);
 	    		++pageCount;
 	    	}

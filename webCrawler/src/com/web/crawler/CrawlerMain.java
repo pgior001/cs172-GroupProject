@@ -31,7 +31,7 @@ public class CrawlerMain {
     	outputDirectory = args[3];
     	rootPages = getRootPages();
     	try {
-    		index = new BufferedWriter(new FileWriter(CrawlerMain.outputDirectory + "\\index.txt"));
+    		index = new BufferedWriter(new FileWriter(CrawlerMain.outputDirectory + File.separator + "index.txt"));
     	} catch (IOException e) {
     		
     	}
