@@ -4,10 +4,12 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -73,7 +75,10 @@ public class CrawlerThread extends Thread {
                     }
             	}
             	System.out.println("Url: " + urlNode.url + " Hop count: " + urlNode.hops + " Page count: " + pageCount);//wanted to check the hop count and the url
-                Document document = Jsoup.connect(urlNode.url).get();
+                //Document document = Jsoup.connect(urlNode.url).get();
+            	InputStream input = new URL(urlNode.url).openStream();
+            	Document document = Jsoup.parse(input, null, urlNode.url);
+                document.outputSettings().charset(Charset.forName("ASCII"));
                 // document successfully retrieved
                 
                 //check to see if doc can be indexed and if new links can be added from it
