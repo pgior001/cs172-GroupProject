@@ -75,10 +75,11 @@ public class CrawlerThread extends Thread {
                     }
             	}
             	System.out.println("Url: " + urlNode.url + " Hop count: " + urlNode.hops + " Page count: " + pageCount);//wanted to check the hop count and the url
-                //Document document = Jsoup.connect(urlNode.url).get();
-            	InputStream input = new URL(urlNode.url).openStream();
-            	Document document = Jsoup.parse(input, null, urlNode.url);
-                document.outputSettings().charset(Charset.forName("ASCII"));
+                Document document = Jsoup.connect(urlNode.url).get();
+            	document.outputSettings().charset(Charset.forName("ASCII"));
+//            	InputStream input = new URL(urlNode.url).openStream();
+//            	Document document = Jsoup.parse(input, null, urlNode.url);
+//                document.outputSettings().charset(Charset.forName("ASCII"));
                 // document successfully retrieved
                 
                 //check to see if doc can be indexed and if new links can be added from it
