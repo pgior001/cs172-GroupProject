@@ -22,7 +22,6 @@ public class CrawlerMain {
     
 
     public static void main(String args[]){
-    	//for eventual use in reading in the command line arguments for the files.
     	//command line argument: rootpages 10000 6 C:\\Users\\Asus\\Downloads\\downloadscrawler\\
     	//change outputDirectory for yourself
     	seedFile = args[0];
@@ -44,6 +43,19 @@ public class CrawlerMain {
     		threads.add(new CrawlerThread(i));
     		threads.get(i).start();
     	}
+    	
+    	while(CrawlerThread.pageCount < numPages - 1) {
+			for(int i = java.lang.Thread.activeCount(); i < cores * 40 + 1; ++i) {
+	    		threads.add(new CrawlerThread(i));
+	    		threads.get(threads.size() - 1).start();
+			}
+    		try {
+				Thread.sleep(60000);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+    	}
     }
 
     private static List<String> getRootPages() {
@@ -56,6 +68,7 @@ public class CrawlerMain {
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             String line;
             while ((line = br.readLine()) != null) {
+            	line = line.replace("http://", "");
                 rootPages.add(line);
             }
         } catch (IOException e) {

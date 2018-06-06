@@ -46,9 +46,7 @@ public class CrawlerThread extends Thread {
 	private int threadNumber;
 	private int maxHops = CrawlerMain.hopsAway;
 	private static int maxPages = CrawlerMain.numPages;
-	private static int pageCount = 0;
-	private static boolean init = false;
-    private static Map<String, ArrayList<String>> crawlPermissions = new HashMap<String, ArrayList<String>>();
+	public static int pageCount = 0;
 
     // all urls in this queue are unique and should be processed
     final private static Queue<UrlNode> urlsToCrawl = initUrlsToCrawl();
@@ -75,12 +73,12 @@ public class CrawlerThread extends Thread {
                     }
             	}
             	System.out.println("Url: " + urlNode.url + " Hop count: " + urlNode.hops + " Page count: " + pageCount);//wanted to check the hop count and the url
-                Document document = Jsoup.connect(urlNode.url).get();
-            	document.outputSettings().charset(Charset.forName("ASCII"));
-//            	InputStream input = new URL(urlNode.url).openStream();
-//            	Document document = Jsoup.parse(input, null, urlNode.url);
-//                document.outputSettings().charset(Charset.forName("ASCII"));
-                // document successfully retrieved
+                //Document document = Jsoup.connect(urlNode.url).get();
+//                Document document = Jsoup.connect("http://www." + urlNode.url).get();
+//            	document.outputSettings().charset(Charset.forName("ASCII"));
+            	InputStream input = new URL("http://www." + urlNode.url).openStream();
+            	Document document = Jsoup.parse(input, null, urlNode.url);
+                document.outputSettings().charset(Charset.forName("ASCII"));
                 
                 //check to see if doc can be indexed and if new links can be added from it
                 checkDoc(document,urlNode);
@@ -92,7 +90,7 @@ public class CrawlerThread extends Thread {
                 }
                 else
                 {
-                	System.out.println("NO INDEXING!!!!!!!!!!!! WEBSITE: " + urlNode.url);
+//                	System.out.println("NO INDEXING!!!!!!!!!!!! WEBSITE: " + urlNode.url);
                 }
 
                 // add new links in the document to crawl
@@ -106,7 +104,7 @@ public class CrawlerThread extends Thread {
                 	}
                 	else
                 	{
-                		System.out.println("NO FOLLOWING!!!!!!!!!!!! WEBSITE: " + urlNode.url);
+//                		System.out.println("NO FOLLOWING!!!!!!!!!!!! WEBSITE: " + urlNode.url);
                 	}
                 }
             } catch (IOException e) {
@@ -200,7 +198,22 @@ public class CrawlerThread extends Thread {
             newLink = cleanupUpUrl(newLink); // cleanup: sharp, casing, encoding
             if(!newLink.contains(".edu"))
             	continue;
+            if(newLink.contains(".pdf"))
+            	continue;
+            if(newLink.endsWith(".jpg"))
+            	continue;
+        	if(newLink.endsWith(".zip"))
+        		continue;
             if (robotText.robotsShouldFollow(newLink)) {
+            	if(newLink.endsWith("/"))
+                	newLink = newLink.substring(0,newLink.length() - 1);
+                newLink = newLink.replace("http://", "");
+                if(newLink.endsWith(".html"))
+                	newLink = newLink.substring(0, newLink.length() - 5);
+                if(newLink.startsWith("www."))
+                	newLink = newLink.replace("www.", "");
+                if(newLink.endsWith("#"))
+                	newLink = newLink.substring(0,newLink.length() - 1);
                 synchronized (seenPages) {
                     if (!seenPages.contains(newLink)) {
                         // System.out.println(newLink); // temporary print statement
